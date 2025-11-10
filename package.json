@@ -10,12 +10,14 @@
     "build": "tsc",
     "cli": "tsx scripts/cli.tsx",
     "build:examples": "yarn workspaces foreach --all --include \"examples/*\" run build",
+    "build:tx": "yarn workspaces foreach --all --include \"examples/xmtp-transactions\" run build",
     "dev": "cd examples/xmtp-gm && tsx --watch index.ts",
     "format": "prettier -w .",
     "gen:keys": "tsx scripts/generateKeys.ts",
     "lint": "eslint .",
     "revoke": "tsx scripts/revokeInstallations.ts",
     "start": "cd examples/xmtp-gm && tsx index.ts",
+    "start:tx": "cd examples/xmtp-transactions && tsx index.ts",
     "typecheck": "tsc"
   },
   "dependencies": {
@@ -30,6 +32,7 @@
   "devDependencies": {
     "@eslint/compat": "^1.2.4",
     "@types/react": "^19",
+    "dotenv": "^17.2.3",
     "eslint": "^9.19.0",
     "eslint-plugin-prettier": "^5.2.3",
     "globals": "^15.14.0",

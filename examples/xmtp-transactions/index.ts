@@ -1,17 +1,28 @@
 import { Agent, validHex } from "@xmtp/agent-sdk";
-import { getTestUrl } from "@xmtp/agent-sdk/debug";
+import { logDetails } from "@xmtp/agent-sdk/debug";
 import { CommandRouter } from "@xmtp/agent-sdk/middleware";
 import { ContentTypeWalletSendCalls } from "@xmtp/content-type-wallet-send-calls";
-import { loadEnvFile } from "../../utils/general";
+import { getEncryptionKeyFromString } from "../../utils/general";
 import { USDCHandler } from "../../utils/usdc";
+import { type TransactionReference } from "@xmtp/content-type-transaction-reference";
+import dotenv from "dotenv";
 
-loadEnvFile();
+dotenv.config();
 
-const NETWORK_ID = process.env.NETWORK_ID || "base-sepolia";
+const NETWORK_ID = process.env.NETWORK_ID || "base-mainnet";
 
 const usdcHandler = new USDCHandler(NETWORK_ID);
 
-const agent = await Agent.createFromEnv();
+const dbEncryptionKey = process.env.XMTP_DB_ENCRYPTION_KEY
+  ? getEncryptionKeyFromString(process.env.XMTP_DB_ENCRYPTION_KEY)
+  : undefined;
+console.log("XMTP network from env", process.env.XMTP_ENV);
+console.log("Base network from env", NETWORK_ID);
+
+const agent = await Agent.createFromEnv({
+  env: process.env.XMTP_ENV as "local" | "dev" | "production",
+  dbEncryptionKey,
+});
 
 const router = new CommandRouter();
 
@@ -68,12 +79,37 @@ router.default(async (ctx) => {
 agent.on("start", () => {
   console.log(`Waiting for messages...`);
   console.log(`Address: ${agent.address}`);
-  console.log(`🔗${getTestUrl(agent.client)}`);
+  console.log(`🔗${logDetails(agent.client)}`);
 });
 
 agent.on("transaction-reference", async (ctx) => {
-  const transactionRef = ctx.message.content;
-  console.log("Received transaction reference: ", transactionRef);
+  const senderAddress = await ctx.getSenderAddress();
+  console.log(`Transaction reference message received from ${senderAddress}`);
+
+  // expected from xmtp.chat
+  let transactionRef: TransactionReference;
+  transactionRef = ctx.message.content;
+  if (transactionRef.reference) {
+    console.log("[XMTP CHAT] ctx.message received", ctx.message);
+    // from xmtp.chat
+    console.log(
+      `[XMTP CHAT] Transaction reference message received ${transactionRef.reference}, networkId ${transactionRef.networkId}`,
+    );
+  } else {
+    // from the base app
+    console.log("[BASE APP] ctx.message received", ctx.message);
+    console.log(
+      `[BASE APP] EXPECTED transaction reference decoded ${transactionRef?.reference}, networkId ${transactionRef?.networkId}`,
+    );
+    transactionRef = (
+      ctx.message.content as unknown as {
+        transactionReference: TransactionReference;
+      }
+    ).transactionReference;
+    console.log(
+      `[BASE APP] REAL transaction reference decoded received ${transactionRef.reference}, networkId ${transactionRef.networkId}`,
+    );
+  }
 
   await ctx.sendText(
     `✅ Transaction confirmed!\n` +
